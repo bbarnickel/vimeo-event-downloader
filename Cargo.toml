@@ -1,5 +1,5 @@
 [package]
-name = "vimeo-event-download"
+name = "vimeo-event-downloader"
 version = "0.1.0"
 edition = "2021"
 
