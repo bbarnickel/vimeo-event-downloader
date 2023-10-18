@@ -2,11 +2,11 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::{fmt::Display, io};
 
-use base64::decode;
+use base64::{Engine as _, engine::general_purpose};
 use eyre::{eyre, Result};
 use html_escape::decode_html_entities;
 use regex::Regex;
-use ureq::serde_json;
+use ureq::serde_json::{self, Value};
 use url::Url;
 
 use clap::Parser;
@@ -103,28 +103,34 @@ fn get_video_infos(master_url: &str) -> Result<Vec<VideoInfo>> {
 
     let videos: Vec<_> = videos
         .iter()
-        .map(|v| VideoInfo {
-            base_url: base_url.to_string(),
-            id: v["id"].to_string(),
-            codecs: v["codecs"].to_string(),
-            bitrate: v["bitrate"].as_u64().unwrap(),
-            duration: v["duration"].as_f64().unwrap(),
-            width: v["width"].as_u64().unwrap(),
-            height: v["height"].as_u64().unwrap(),
-            init_segment: decode(v["init_segment"].as_str().unwrap()).unwrap(),
-            segments: v["segments"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|s| Segment {
-                    path: s["url"].as_str().unwrap().to_string(),
-                    size: s["size"].as_u64().unwrap(),
-                })
-                .collect(),
-        })
+        .map(|v| extract_video_info(v, &base_url))
         .collect();
 
     Ok(videos)
+}
+
+fn extract_video_info(value: &Value, base_url: &Url) -> VideoInfo {
+    let init_segment = value["init_segment"].as_str().unwrap();
+
+    VideoInfo {
+        base_url: base_url.to_string(),
+        id: value["id"].to_string(),
+        codecs: value["codecs"].to_string(),
+        bitrate: value["bitrate"].as_u64().unwrap(),
+        duration: value["duration"].as_f64().unwrap(),
+        width: value["width"].as_u64().unwrap(),
+        height: value["height"].as_u64().unwrap(),
+        init_segment: general_purpose::STANDARD_NO_PAD.decode(init_segment).unwrap(),
+        segments: value["segments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| Segment {
+                path: s["url"].as_str().unwrap().to_string(),
+                size: s["size"].as_u64().unwrap(),
+            })
+            .collect(),
+    }
 }
 
 fn download(file_path: &str, video: &VideoInfo) -> Result<()> {
