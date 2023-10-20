@@ -111,6 +111,7 @@ fn get_video_infos(master_url: &str) -> Result<Vec<VideoInfo>> {
 
 fn extract_video_info(value: &Value, base_url: &Url) -> VideoInfo {
     let init_segment = value["init_segment"].as_str().unwrap();
+    let init_segment = general_purpose::STANDARD.decode(init_segment).unwrap();
 
     VideoInfo {
         base_url: base_url.to_string(),
@@ -120,7 +121,7 @@ fn extract_video_info(value: &Value, base_url: &Url) -> VideoInfo {
         duration: value["duration"].as_f64().unwrap(),
         width: value["width"].as_u64().unwrap(),
         height: value["height"].as_u64().unwrap(),
-        init_segment: general_purpose::STANDARD_NO_PAD.decode(init_segment).unwrap(),
+        init_segment,
         segments: value["segments"]
             .as_array()
             .unwrap()
